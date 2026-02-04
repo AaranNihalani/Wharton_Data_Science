@@ -3,7 +3,7 @@ import numpy as np
 import statsmodels.api as sm
 
 # Load the dataset
-file_path = 'assets/whl_2025.csv'
+file_path = '../Assets/whl_2025.csv'
 df = pd.read_csv(file_path)
 
 # Aggregate data by game

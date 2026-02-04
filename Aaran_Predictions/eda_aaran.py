@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 # Load the dataset
-file_path = 'assets/whl_2025.csv'
+file_path = '../Assets/whl_2025.csv'
 df = pd.read_csv(file_path)
 
 # 1. Team Performance Analysis
