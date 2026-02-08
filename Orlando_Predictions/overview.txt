@@ -1,0 +1,146 @@
+WHSDSC 2026 – Phase 1 Crib Sheet
+
+Model: Line-aware Elo / Bradley–Terry
+Goal: Rank teams, predict matchups, quantify line depth, visualize insight
+
+
+
+0. Setup (Day 1)
+
+Data
+
+• whl_2025 (game × line rows)
+
+• WHSDSC_Rnd1_matchups
+
+Key fields
+
+• team, opponent, home/away
+
+• offensive line (1st / 2nd)
+
+• defensive pairing (1st / 2nd)
+
+• xG, goals, time on ice
+
+Assumption
+
+• Team & line quality constant over season
+
+
+
+1. Phase 1a — Team Strength & Matchups (Days 2–3)
+
+Clean & Aggregate
+
+• Aggregate line rows → team–game
+
+• Compute:
+
+◦ Total xG for / against
+
+◦ xG per 60 (optional)
+
+◦ Home indicator
+
+Model (Elo-style)
+
+Bradley–Terry logistic
+
+P(home win)=σ(αhome−αaway+β⋅home)P(\text{home win})=\sigma(\alpha_{home}-\alpha_{away}+\beta\cdot home)P(home win)=σ(αhome−αaway+β⋅home)
+
+• αi\alpha_iαi: team strength (Elo-like)
+
+• β\betaβ: home advantage
+
+Outputs
+
+• Power rankings: rank teams by αi\alpha_iαi
+
+• Matchups: compute 16 home win probabilities
+
+
+
+2. Phase 1b — Offensive Line Disparity (Day 4)
+
+Line Performance
+
+For each team & line:
+
+Line xG/60=∑xG∑TOI×60\text{Line xG/60}=\frac{\sum xG}{\sum TOI}\times 60Line xG/60=∑TOI∑xG×60
+
+Disparity Ratio
+
+Disparity=1st line xG/602nd line xG/60\text{Disparity}=\frac{\text{1st line xG/60}}{\text{2nd line xG/60}}Disparity=2nd line xG/601st line xG/60
+
+Output
+
+• Rank teams by disparity
+
+• Submit Top 10 highest ratios
+
+
+
+3. Phase 1c — Visualization (Day 5)
+
+Plot
+
+Scatter
+
+• x: Offensive Line Disparity
+
+• y: Team Strength (αi\alpha_iαi)
+
+Design
+
+• Clear title + subtitle
+
+• Labeled axes
+
+• Trend line
+
+• Label top teams
+
+Message
+
+• More balanced lines ↔ stronger teams
+
+
+
+4. Phase 1d — Write-Up (Day 6)
+
+Cleaning (≈50w)
+Aggregation, normalization, home indicator
+
+Variables (≈25w)
+Team strength, xG/60, disparity ratio
+
+Tools (≈50w)
+Python (pandas, statsmodels); optional Sheets
+
+Methods (≈100w)
+Bradley–Terry logistic (Elo interpretation), xG efficiency
+
+Predictions (≈50w each)
+
+• 1a: ratings → probabilities
+
+• 1b: ratio-based depth
+
+• 1c: scatter relationship
+
+Evaluation (≈50w)
+Log loss / calibration
+
+GenAI (≈50w)
+Code scaffolding, validation only
+
+
+
+Submission Checklist
+
+☐ 32-team power ranking
+☐ 16 win probabilities
+☐ Top-10 disparity list
+☐ 1 PNG visualization
+☐ Methodology text
