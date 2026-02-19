@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 # Load data
-df = pd.read_csv('../Assets/whl_2025.csv')
+df = pd.read_csv('../assets/whl_2025.csv')
 
 # --- 1. Calculate Defensive Strength of Every Pairing ---
 # We want to know how many xG per 60 each defensive pairing allows.
@@ -33,34 +33,24 @@ league_avg_xg_per_60 = (all_def['xg_allowed'].sum() / all_def['toi'].sum()) * 36
 print(f"League Average xG Allowed per 60: {league_avg_xg_per_60:.4f}")
 
 # Map (Team, Pairing) -> Rating
-# We create a dictionary for fast lookup: (team, pairing) -> xG_allowed_per_60
 def_rating_map = def_stats.set_index(['team', 'pairing'])['xg_allowed_per_60'].to_dict()
 
 # --- 2. Calculate Offensive Performance Adjusted for Defense ---
-# We focus only on 'first_off' and 'second_off' lines.
-
-# Filter for relevant offensive lines
 relevant_lines = ['first_off', 'second_off']
 
-# Prepare Home Offense Data (facing Away Defense)
 home_off = df[df['home_off_line'].isin(relevant_lines)][['home_team', 'home_off_line', 'away_team', 'away_def_pairing', 'home_xg', 'toi']].copy()
 home_off.columns = ['team', 'line', 'opp_team', 'opp_pairing', 'xg_for', 'toi']
 
-# Prepare Away Offense Data (facing Home Defense)
 away_off = df[df['away_off_line'].isin(relevant_lines)][['away_team', 'away_off_line', 'home_team', 'home_def_pairing', 'away_xg', 'toi']].copy()
 away_off.columns = ['team', 'line', 'opp_team', 'opp_pairing', 'xg_for', 'toi']
 
-# Combine
 all_off = pd.concat([home_off, away_off])
 
-# Add Opponent Defensive Rating to each row
 def get_opp_rating(row):
     return def_rating_map.get((row['opp_team'], row['opp_pairing']), league_avg_xg_per_60)
 
 all_off['opp_def_rating'] = all_off.apply(get_opp_rating, axis=1)
 
-# Group by Team and Line
-# Using include_groups=False to avoid deprecation warning
 off_stats = all_off.groupby(['team', 'line']).apply(
     lambda x: pd.Series({
         'total_xg': x['xg_for'].sum(),
@@ -70,31 +60,30 @@ off_stats = all_off.groupby(['team', 'line']).apply(
     include_groups=False
 ).reset_index()
 
-# Calculate Raw xG per 60
 off_stats['raw_xg_per_60'] = (off_stats['total_xg'] / off_stats['total_toi']) * 3600
-
-# Calculate Adjusted xG per 60
-# Logic: If you played against defenses that allow 2.0 (avg 1.5), your stats are inflated.
-# Adj = Raw * (League_Avg / Opp_Avg)
 off_stats['adj_xg_per_60'] = off_stats['raw_xg_per_60'] * (league_avg_xg_per_60 / off_stats['avg_opp_def_rating'])
 
-# --- 3. Calculate Disparity Ratio (First / Second) ---
-# Pivot to get columns for first and second
-pivoted = off_stats.pivot(index='team', columns='line', values='adj_xg_per_60').reset_index()
+# --- 3. Calculate Defensive Performance (for comparison) ---
+# We focus on 'first_def' and 'second_def' pairings
+relevant_pairings = ['first_def', 'second_def']
+def_stats_filtered = def_stats[def_stats['pairing'].isin(relevant_pairings)].copy()
 
-if 'first_off' not in pivoted.columns or 'second_off' not in pivoted.columns:
-    print("Error: Missing first or second line data for some teams.")
-else:
-    # Calculate Ratio: First / Second
-    pivoted['disparity_ratio'] = pivoted['first_off'] / pivoted['second_off']
-    
-    # Sort by ratio descending
-    ranked_teams = pivoted.sort_values(by='disparity_ratio', ascending=False).reset_index(drop=True)
-    ranked_teams['rank'] = ranked_teams.index + 1
-    
-    # Display Top 10
-    print("\n--- Top 10 Teams by Offensive Line Quality Disparity (1st vs 2nd) ---")
-    print(ranked_teams[['rank', 'team', 'disparity_ratio', 'first_off', 'second_off']].head(10).to_string(index=False))
-    
-    # Save to CSV
-    ranked_teams.to_csv('line_disparity_analysis.csv', index=False)
+# --- 4. Prepare Final Dataset for Visualization ---
+# Pivot Offense
+off_pivot = off_stats.pivot(index='team', columns='line', values='adj_xg_per_60').reset_index()
+off_pivot['off_disparity'] = off_pivot['first_off'] / off_pivot['second_off']
+
+# Pivot Defense (Note: Lower is better for defense, so we might want to invert or just show raw)
+def_pivot = def_stats_filtered.pivot(index='team', columns='pairing', values='xg_allowed_per_60').reset_index()
+# For defense, if first_def allows less than second_def, that's "better".
+# Ratio > 1 means first pairing is WORSE (allows more goals) than second pairing.
+# Ratio < 1 means first pairing is BETTER (allows fewer goals).
+# To make it comparable to offense (where > 1 means 1st line is "more productive"), 
+# let's calculate: Second / First.
+# If Second allows 3.0 and First allows 2.0, Ratio = 1.5. (First is 1.5x better/stingier).
+def_pivot['def_disparity'] = def_pivot['second_def'] / def_pivot['first_def']
+
+# Merge everything
+final_df = pd.merge(off_pivot, def_pivot, on='team')
+final_df.to_csv('line_analysis_full.csv', index=False)
+print("Saved full line analysis to line_analysis_full.csv")
